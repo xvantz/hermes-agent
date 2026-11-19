@@ -655,7 +655,7 @@ def _parse_pre_tool_call(data: dict[str, Any]) -> Optional[dict[str, Any]]:
     # approve`` means auto-ALLOW, so it is deliberately not mapped onto this.
     if data.get("action") == "approve":
         directive: dict[str, Any] = {"action": "approve"}
-        for key in ("message", "rule_key"):
+        for key in ("message", "rule_key", "display_target"):
             value = data.get(key)
             if isinstance(value, str) and value.strip():
                 directive[key] = value.strip()
