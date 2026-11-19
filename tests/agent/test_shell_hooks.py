@@ -49,6 +49,14 @@ class TestParseResponse:
         ('{"action": "approve", "message": "  needs a human ", "rule_key": " terminal:rm "}',
          {"action": "approve", "message": "needs a human", "rule_key": "terminal:rm"}),
         ('{"action": "approve", "message": "", "rule_key": 7}', {"action": "approve"}),
+        # A hook that knows the exact command hands it to the card's command slot.
+        ('{"action": "approve", "message": "why", "rule_key": "kubectl",'
+         ' "display_target": "  kubectl delete pod api-0\\n"}',
+         {"action": "approve", "message": "why", "rule_key": "kubectl",
+          "display_target": "kubectl delete pod api-0"}),
+        # Non-string or blank values keep the synthetic label.
+        ('{"action": "approve", "display_target": 7}', {"action": "approve"}),
+        ('{"action": "approve", "display_target": "   "}', {"action": "approve"}),
         # Claude-Code's ``decision: approve`` means auto-ALLOW, not "ask a human": never mapped.
         ('{"decision": "approve", "reason": "ok"}', None),
         ('{"action": "approve", "decision": "block", "reason": "no"}', {"action": "block", "message": "no"}),
