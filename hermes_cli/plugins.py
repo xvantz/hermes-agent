@@ -1114,6 +1114,7 @@ class _PreToolCallDirective:
     action: Optional[str] = None
     message: Optional[str] = None
     rule_key: Optional[str] = None
+    display_target: Optional[str] = None
     modified_args: Optional[dict[str, Any]] = None
 
 
@@ -1151,7 +1152,7 @@ def _get_pre_tool_call_directive_details(
         api_request_id=api_request_id, middleware_trace=list(middleware_trace or []), conversation_id=conversation_id,
     )
     modified_args: Optional[dict[str, Any]] = None
-    first_approve: Optional[tuple[Optional[str], Optional[str]]] = None  # (message, rule_key)
+    first_approve: Optional[tuple[Optional[str], Optional[str], Optional[str]]] = None  # (message, rule_key, display_target)
     for result in hook_results:
         if not isinstance(result, dict):
             continue
@@ -1177,10 +1178,12 @@ def _get_pre_tool_call_directive_details(
         # approve is held back until the whole list has been scanned for a veto.
         if first_approve is None:
             rule_key = result.get("rule_key")
-            first_approve = (message, (rule_key.strip() or None) if isinstance(rule_key, str) else None)
+            display_target = result.get("display_target")
+            first_approve = (message, (rule_key.strip() or None) if isinstance(rule_key, str) else None,
+                             (display_target.strip() or None) if isinstance(display_target, str) else None)
     if first_approve is not None:
         return _PreToolCallDirective(action="approve", message=first_approve[0], rule_key=first_approve[1],
-                                     modified_args=modified_args)
+                                     display_target=first_approve[2], modified_args=modified_args)
     return _PreToolCallDirective(modified_args=modified_args)
 
 
@@ -1227,7 +1230,8 @@ def _resolve_block_from_details(
             approval_tokens = set_current_observability_context(
                 turn_id=turn_id, tool_call_id=tool_call_id, session_id=session_id)
         try:
-            result = request_tool_approval(tool_name, details.message or "", rule_key=details.rule_key or tool_name)
+            result = request_tool_approval(tool_name, details.message or "", rule_key=details.rule_key or tool_name,
+                                           display_target=details.display_target or "")
         finally:
             if approval_tokens is not None:
                 with suppress(Exception):

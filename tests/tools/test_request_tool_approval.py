@@ -247,3 +247,41 @@ class TestRequestToolApproval:
         )
         res = request_tool_approval("computer_use", "click", rule_key="cua")
         assert res == {"approved": True, "message": None}
+
+
+class TestDisplayTarget:
+    """A plugin that knows the exact command hands it to the card's command slot.
+
+    ``request_tool_approval`` used to hardcode ``<tool> (plugin approval rule)`` as the display
+    target, so the card could only show that synthetic label while the real command was clamped
+    into the reason field (~500 chars).
+    """
+
+    @staticmethod
+    def _capture(monkeypatch):
+        shown = []
+
+        def fake_prompt(command, *a, **k):
+            shown.append(command)
+            return "deny"
+
+        monkeypatch.setattr(approval, "_is_interactive_cli", lambda: True)
+        monkeypatch.setattr(approval, "_is_gateway_approval_context", lambda: False)
+        monkeypatch.setattr(tools_approval_context, "_is_gateway_approval_context", lambda: False)
+        monkeypatch.setattr(approval, "prompt_dangerous_approval", fake_prompt)
+        monkeypatch.setattr(approval_prompt, "prompt_dangerous_approval", fake_prompt)
+        return shown
+
+    def test_display_target_is_what_the_card_shows(self, monkeypatch):
+        shown = self._capture(monkeypatch)
+        res = request_tool_approval(
+            "terminal", "kubectl mutates the cluster", rule_key="kubectl",
+            display_target="kubectl delete pod api-0 -n prod",
+        )
+        assert shown == ["kubectl delete pod api-0 -n prod"]
+        assert res["approved"] is False
+
+    def test_absent_display_target_keeps_the_synthetic_label(self, monkeypatch):
+        shown = self._capture(monkeypatch)
+        request_tool_approval("terminal", "why", rule_key="kubectl")
+        assert shown == ["<terminal> (plugin approval rule)"]
